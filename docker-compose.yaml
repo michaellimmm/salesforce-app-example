@@ -1,0 +1,11 @@
+version: '3.7'
+services:
+  # mongo
+  mongo:
+    image: mongo:4.4.6-bionic
+    environment:
+      MONGO_INITDB_DATABASE: salesforce_db
+    volumes:
+      - ./mongo:/data/db
+    ports:
+      - 27017:27017
