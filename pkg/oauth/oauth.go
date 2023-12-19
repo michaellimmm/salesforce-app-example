@@ -3,22 +3,21 @@ package oauth
 import (
 	"context"
 	"encoding/json"
-	"github/michaellimmm/salesforce-app-example/util/crypto"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
-	"os"
+	"strings"
 
 	"go.uber.org/zap"
+
+	"github/michaellimmm/salesforce-app-example/types"
 )
 
 const (
-	sfOAuthUri      = "https://login.salesforce.com"
 	sfAuthorizePath = "/services/oauth2/authorize"
 	sfTokenPath     = "/services/oauth2/token"
 	sfUserInfoPath  = "/services/oauth2/userinfo"
-	redirectPath    = "/oauth/callback"
 )
 
 type GrantType string
@@ -30,110 +29,106 @@ const (
 
 type (
 	OAuth interface {
-		GenerateLoginUrl() (string, error)
-		GetToken(context.Context, TokenRequest) error
+		GetToken(context.Context, TokenRequest) (TokenResponse, error)
 	}
 
 	oauth struct {
-		logger       *zap.Logger
-		serverDomain string
-		clientId     string
-		clientSecret string
-		clientCode   string
+		logger *zap.Logger
 	}
 )
 
 func NewOauth(logger *zap.Logger) OAuth {
 	return &oauth{
-		logger:       logger,
-		serverDomain: os.Getenv("HTTP_SERVER_DOMAIN"),
-		clientId:     os.Getenv("CLIENT_ID"),
-		clientSecret: os.Getenv("CLIENT_SECRET"),
-		clientCode:   os.Getenv("CLIENT_CODE"),
+		logger: logger,
 	}
 }
 
-func (o *oauth) GenerateLoginUrl() (string, error) {
-	u, err := url.Parse(sfOAuthUri + sfAuthorizePath)
-	if err != nil {
-		return "", err
+type (
+	TokenRequest struct {
+		GrantType    GrantType
+		Code         string
+		RefreshToken string
+		RedirectUri  string
+		CodeVerifier string
+		ClientID     string
+		ClientSecret string
 	}
 
-	q := u.Query()
-	q.Add("response_type", "code")
-	q.Add("client_id", o.clientId)
-	q.Add("redirect_uri", o.serverDomain+redirectPath)
-	q.Add("code_challenge", crypto.SHA256URLEncode(o.clientCode))
-
-	u.RawQuery = q.Encode()
-
-	return u.String(), nil
-}
-
-func (o *oauth) GetToken(ctx context.Context, param TokenRequest) error {
-	u, err := url.Parse(sfOAuthUri + sfTokenPath)
-	if err != nil {
-		return err
+	TokenResponse struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		Signature    string `json:"signature"`
+		Scope        string `json:"scope"`
+		IDToken      string `json:"id_token"`
+		InstanceUrl  string `json:"instance_url"`
+		ID           string `json:"id"`
+		TokenType    string `json:"token_type"`
+		IssuedAt     string `json:"issued_at"`
 	}
+)
 
-	q := u.Query()
-	q.Add("grant_type", "authorization_code")
-	q.Add("client_id", o.clientId)
-	q.Add("client_secret", o.clientSecret)
+func (t *TokenRequest) ToQueryParam() string {
+	q := make(url.Values)
+	q.Add("grant_type", string(t.GrantType))
+	q.Add("client_id", t.ClientID)
+	q.Add("client_secret", t.ClientSecret)
 	q.Add("format", "json")
 
-	switch param.GrantType {
+	switch t.GrantType {
 	case GrantTypeAuthCode:
-		q.Add("redirect_uri", o.serverDomain+redirectPath)
-		q.Add("code", param.Code)
-		q.Add("code_verifier", o.clientCode)
+		q.Add("redirect_uri", t.RedirectUri)
+		q.Add("code", t.Code)
+		q.Add("code_verifier", strings.ReplaceAll(t.CodeVerifier, "%3D", "="))
 	case GrantTypeRefreshToken:
-		q.Add("refresh_token", param.RefreshToken)
+		q.Add("refresh_token", t.RefreshToken)
 	}
 
-	u.RawQuery = q.Encode()
+	return q.Encode()
+}
+
+func (t *TokenResponse) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, t)
+}
+
+func (o *oauth) GetToken(ctx context.Context, param TokenRequest) (TokenResponse, error) {
+	u, err := url.Parse(types.SfLoginUri + sfTokenPath)
+	if err != nil {
+		o.logger.Error("failed to parse url", zap.Error(err))
+		return TokenResponse{}, err
+	}
+
+	u.RawQuery = param.ToQueryParam()
+
+	o.logger.Info("url", zap.String("url", u.String()))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
 	if err != nil {
-		return err
+		o.logger.Error("failed to create request", zap.Error(err))
+		return TokenResponse{}, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := http.DefaultClient
+	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		o.logger.Error("failed to get response", zap.Error(err))
+		return TokenResponse{}, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		o.logger.Error("failed to read response body", zap.Error(err))
+		return TokenResponse{}, err
 	}
+
+	o.logger.Info("response", zap.Any("body", string(body)), zap.String("response code", resp.Status))
+
+	if resp.StatusCode/100 != 2 {
+		return TokenResponse{}, errors.New("failed to get")
+	}
+
 	result := TokenResponse{}
 	result.Unmarshal(body)
 
-	o.logger.Info("body", zap.Any("body", result))
-
-	return nil
-}
-
-type TokenRequest struct {
-	GrantType    GrantType
-	Code         string
-	RefreshToken string
-}
-
-type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	Signature    string `json:"signature"`
-	Scope        string `json:"scope"`
-	IDToken      string `json:"id_token"`
-	InstanceUrl  string `json:"instance_url"`
-	ID           string `json:"id"`
-	TokenType    string `json:"token_type"`
-	IssuedAt     string `json:"issued_at"`
-}
-
-func (t *TokenResponse) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, t)
+	return result, nil
 }

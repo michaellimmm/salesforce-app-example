@@ -3,14 +3,17 @@ package db
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
+var Datastore DBProvider
+
 type (
-	BaseRepositoryProvider interface {
+	DBProvider interface {
 		Collection(name string) CollectionProvider
 		Disconnect(ctx context.Context) error
 		SelectDB(dbName string)
@@ -29,17 +32,16 @@ type (
 
 	DBOptions func(c *options.ClientOptions)
 
-	BaseRepository struct {
+	DB struct {
 		client *mongo.Client
 		db     *mongo.Database
 	}
 )
 
-// NewBaseRepository connects to the datastore and returns a BaseRepository instance
-func NewBaseRepository(
+func NewDB(
 	ctx context.Context,
 	opts ...DBOptions,
-) (BaseRepositoryProvider, error) {
+) DBProvider {
 
 	clientOptions := options.Client()
 	for _, o := range opts {
@@ -47,19 +49,19 @@ func NewBaseRepository(
 	}
 
 	if err := clientOptions.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid client options: %w", err)
+		log.Fatal("invalid client options: %w", err)
 	}
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to mongodb server: %w", err)
+		log.Fatal("failed to connect to mongodb server: %w", err)
 	}
 
 	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		return nil, fmt.Errorf("failed to ping mongodb server: %w", err)
+		log.Fatal("failed to ping mongodb server: %w", err)
 	}
 
-	return &BaseRepository{client: client}, nil
+	return &DB{client: client}
 }
 
 func WithURI(uri string) DBOptions {
@@ -90,40 +92,40 @@ func WithMinPoolSize(size uint64) DBOptions {
 	}
 }
 
-func (br *BaseRepository) Collection(name string) CollectionProvider {
-	return &baseCollection{br.db.Collection(name)}
+func (d *DB) Collection(name string) CollectionProvider {
+	return &baseCollection{d.db.Collection(name)}
 }
 
-func (br *BaseRepository) Disconnect(ctx context.Context) error {
-	if br.client == nil {
+func (d *DB) Disconnect(ctx context.Context) error {
+	if d.client == nil {
 		return nil
 	}
 
-	return br.client.Disconnect(ctx)
+	return d.client.Disconnect(ctx)
 }
 
-func (br *BaseRepository) GetClient() *mongo.Client {
-	return br.client
+func (d *DB) GetClient() *mongo.Client {
+	return d.client
 }
 
-func (br *BaseRepository) SelectDB(dbName string) {
-	if br.client == nil {
+func (d *DB) SelectDB(dbName string) {
+	if d.client == nil {
 		return
 	}
 
-	br.db = br.client.Database(dbName)
+	d.db = d.client.Database(dbName)
 }
 
-func (br *BaseRepository) DropDB(ctx context.Context) error {
-	return br.db.Drop(ctx)
+func (d *DB) DropDB(ctx context.Context) error {
+	return d.db.Drop(ctx)
 }
 
-func (br *BaseRepository) WithTransaction(
+func (d *DB) WithTransaction(
 	ctx context.Context,
 	txFunc func(context.Context) (interface{}, error),
 	opts ...*options.TransactionOptions,
 ) (interface{}, error) {
-	session, err := br.client.StartSession()
+	session, err := d.client.StartSession()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start session: %w", err)
 	}

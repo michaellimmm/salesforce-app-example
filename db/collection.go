@@ -11,14 +11,11 @@ type baseCollection struct {
 	*mongo.Collection
 }
 
-func (b *baseCollection) FindOne(ctx context.Context, filter interface{},
-	opts ...*options.FindOneOptions) SingleResult {
-	return &singleResult{b.Collection.FindOne(ctx, filter, opts...)}
-}
-
 type CollectionProvider interface {
 	FindOne(ctx context.Context, filter interface{},
-		opts ...*options.FindOneOptions) SingleResult
+		opts ...*options.FindOneOptions) *mongo.SingleResult
+	FindOneAndUpdate(ctx context.Context, filter interface{},
+		update interface{}, opts ...*options.FindOneAndUpdateOptions) *mongo.SingleResult
 	UpdateOne(ctx context.Context, filter interface{},
 		update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error)
 	ReplaceOne(ctx context.Context, filter interface{},

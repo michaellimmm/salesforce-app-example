@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"github/michaellimmm/salesforce-app-example/db"
 	"github/michaellimmm/salesforce-app-example/handler/http"
 	"github/michaellimmm/salesforce-app-example/pkg/oauth"
+	"github/michaellimmm/salesforce-app-example/pkg/pubsubclient"
+	"github/michaellimmm/salesforce-app-example/pkg/salesforce"
 	"log"
 	"os"
 
@@ -45,9 +48,16 @@ func main() {
 		Fields: []string{"url", "queryParams", "reqHeaders", "body"},
 	}))
 
-	oauthService := oauth.NewOauth(logger)
+	db.Datastore = db.NewDB(context.Background(), db.WithURI("mongodb://localhost:27017"))
+	db.Datastore.SelectDB("salesforce_app_db")
 
-	handler := http.NewHandler(httpSrv, logger, oauthService)
+	oauthService := oauth.NewOauth(logger)
+	pubsubclient := pubsubclient.NewPubSubClient(logger)
+	salesforceService := salesforce.NewSalesForce(logger, oauthService, pubsubclient)
+
+	logger.Info("service is running ...")
+
+	handler := http.NewHandler(httpSrv, logger, salesforceService)
 	err = handler.Serve(httpSrvPort)
 	if err != nil {
 		logger.Error("failed run handler", zap.Error(err))

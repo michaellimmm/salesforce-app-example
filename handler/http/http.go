@@ -1,8 +1,7 @@
 package http
 
 import (
-	"github/michaellimmm/salesforce-app-example/pkg/oauth"
-	"net/http"
+	"github/michaellimmm/salesforce-app-example/pkg/salesforce"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -13,44 +12,26 @@ type Handler interface {
 }
 
 type handler struct {
-	app          *fiber.App
-	logger       *zap.Logger
-	oauthService oauth.OAuth
+	app        *fiber.App
+	logger     *zap.Logger
+	salesforce salesforce.Salesforce
 }
 
-func NewHandler(httpServer *fiber.App, logger *zap.Logger, oauthService oauth.OAuth) Handler {
+func NewHandler(
+	httpServer *fiber.App,
+	logger *zap.Logger,
+	salesforce salesforce.Salesforce) Handler {
 	return &handler{
-		app:          httpServer,
-		logger:       logger,
-		oauthService: oauthService,
+		app:        httpServer,
+		logger:     logger,
+		salesforce: salesforce,
 	}
 }
 
 func (h *handler) Serve(addr string) error {
-	h.app.Get("/oauth", h.generateLoginUrl)
-
-	h.app.Get("/oauth/callback", func(c *fiber.Ctx) error {
-
-		code := c.Query("code")
-		if code == "" {
-			return c.Status(http.StatusUnprocessableEntity).
-				JSON(fiber.Map{"error": "param 'code' can not be empty"})
-		}
-
-		err := h.oauthService.GetToken(c.Context(), oauth.TokenRequest{
-			GrantType: oauth.GrantTypeAuthCode,
-			Code:      code,
-		})
-		if err != nil {
-			h.logger.Error("error", zap.Error(err))
-		}
-
-		return c.Redirect("/oauth/thanks")
-	})
-
-	h.app.Get("/oauth/thanks", func(c *fiber.Ctx) error {
-		return c.Render("index", fiber.Map{})
-	})
+	h.app.Post("/oauth", h.getLoginUrl)
+	h.app.Get("/oauth/callback", h.oauthCallback)
+	h.app.Get("/oauth/success", h.oauthSuccess)
 
 	return h.app.Listen(addr)
 }
