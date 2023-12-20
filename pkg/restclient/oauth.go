@@ -1,20 +1,16 @@
-package oauth
+package restclient
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"io"
-	"net/http"
 	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
-
-	"github/michaellimmm/salesforce-app-example/types"
 )
 
 const (
+	sfLoginUri      = "https://login.salesforce.com"
 	sfAuthorizePath = "/services/oauth2/authorize"
 	sfTokenPath     = "/services/oauth2/token"
 	sfUserInfoPath  = "/services/oauth2/userinfo"
@@ -27,20 +23,8 @@ const (
 	GrantTypeRefreshToken GrantType = "refresh_token"
 )
 
-type (
-	OAuth interface {
-		GetToken(context.Context, TokenRequest) (TokenResponse, error)
-	}
-
-	oauth struct {
-		logger *zap.Logger
-	}
-)
-
-func NewOauth(logger *zap.Logger) OAuth {
-	return &oauth{
-		logger: logger,
-	}
+type OAuth interface {
+	GetToken(context.Context, TokenRequest) (TokenResponse, error)
 }
 
 type (
@@ -90,45 +74,27 @@ func (t *TokenResponse) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, t)
 }
 
-func (o *oauth) GetToken(ctx context.Context, param TokenRequest) (TokenResponse, error) {
-	u, err := url.Parse(types.SfLoginUri + sfTokenPath)
+func (r *restClient) GetToken(ctx context.Context, param TokenRequest) (TokenResponse, error) {
+	u, err := url.Parse(sfLoginUri + sfTokenPath)
 	if err != nil {
-		o.logger.Error("failed to parse url", zap.Error(err))
+		r.logger.Error("failed to parse url", zap.Error(err))
 		return TokenResponse{}, err
 	}
 
 	u.RawQuery = param.ToQueryParam()
 
-	o.logger.Info("url", zap.String("url", u.String()))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
-	if err != nil {
-		o.logger.Error("failed to create request", zap.Error(err))
-		return TokenResponse{}, err
-	}
-
-	client := http.DefaultClient
-	resp, err := client.Do(req)
-	if err != nil {
-		o.logger.Error("failed to get response", zap.Error(err))
-		return TokenResponse{}, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		o.logger.Error("failed to read response body", zap.Error(err))
-		return TokenResponse{}, err
-	}
-
-	o.logger.Info("response", zap.Any("body", string(body)), zap.String("response code", resp.Status))
-
-	if resp.StatusCode/100 != 2 {
-		return TokenResponse{}, errors.New("failed to get")
-	}
+	r.logger.Info("url", zap.String("url", u.String()))
 
 	result := TokenResponse{}
-	result.Unmarshal(body)
+	resp, err := r.client.R().SetResult(&result).Post(u.String())
+	if err != nil {
+		r.logger.Error("failed to get token", zap.Error(err))
+		return TokenResponse{}, err
+	}
+
+	r.logger.Info("response",
+		zap.Any("body", string(resp.Body())),
+		zap.String("response code", resp.Status()))
 
 	return result, nil
 }

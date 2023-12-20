@@ -32,44 +32,30 @@ type Token struct {
 	ClientID     string             `bson:"client_id"`
 	ClientSecret string             `bson:"client_secret"`
 	TokenStatus  string             `bson:"token_status,omitempty"`
+	OrgID        string             `bson:"org_id"`
 	CreatedAt    time.Time          `bson:"created_at,omitempty"`
 	UpdatedAt    time.Time          `bson:"updated_at,omitempty"`
 	DeletedAt    *time.Time         `bson:"deleted_at,omitempty"`
 }
 
-func (t *Token) Save(ctx context.Context) error {
-	filter := createFilter()
-	filter["$and"] = []bson.M{
-		{
-			"client_id":     t.ClientID,
-			"client_secret": t.ClientSecret,
-		},
-	}
-
-	res := t.getCollection().FindOne(ctx, filter)
-	if errors.Is(res.Err(), mongo.ErrNoDocuments) {
-		t.ID = primitive.NewObjectID()
-		return t.save(ctx)
-	}
-
-	if res.Err() != nil {
-		return res.Err()
-	}
-
-	return t.update(ctx, filter)
+func (t *Token) getCollection() db.CollectionProvider {
+	return db.Datastore.Collection(tokenCollection)
 }
 
-func (t *Token) save(ctx context.Context) error {
+func (t *Token) Save(ctx context.Context) error {
 	now := time.Now()
+	t.ID = primitive.NewObjectID()
 	t.CreatedAt = now
 	t.UpdatedAt = now
-	t.TokenStatus = string(TokenStatusPending)
 
 	_, err := t.getCollection().InsertOne(ctx, t)
 	return err
 }
 
-func (t *Token) update(ctx context.Context, filter interface{}) error {
+func (t *Token) Update(ctx context.Context) error {
+	filter := createFilter()
+	filter["_id"] = t.ID
+
 	t.UpdatedAt = time.Now()
 	_, err := t.getCollection().UpdateOne(ctx, filter, bson.M{"$set": t})
 	return err
@@ -81,6 +67,10 @@ func (t *Token) FindByID(ctx context.Context) error {
 
 	result := t.getCollection().FindOne(ctx, filter)
 	if result.Err() != nil {
+		if errors.Is(result.Err(), mongo.ErrNoDocuments) {
+			return ErrDataNotFound
+		}
+
 		return result.Err()
 	}
 
@@ -93,6 +83,31 @@ func (t *Token) FindByInstanceUrl(ctx context.Context) error {
 
 	result := t.getCollection().FindOne(ctx, filter)
 	if result.Err() != nil {
+		if errors.Is(result.Err(), mongo.ErrNoDocuments) {
+			return ErrDataNotFound
+		}
+
+		return result.Err()
+	}
+
+	return result.Decode(t)
+}
+
+func (t *Token) FindByClientIDAndClientSecret(ctx context.Context) error {
+	filter := createFilter()
+	filter["$and"] = []bson.M{
+		{
+			"client_id":     t.ClientID,
+			"client_secret": t.ClientSecret,
+		},
+	}
+
+	result := t.getCollection().FindOne(ctx, filter)
+	if result.Err() != nil {
+		if errors.Is(result.Err(), mongo.ErrNoDocuments) {
+			return ErrDataNotFound
+		}
+
 		return result.Err()
 	}
 
@@ -105,6 +120,10 @@ func (t *Token) FindAllByStatus(ctx context.Context, status TokenStatus) ([]Toke
 
 	cursor, err := t.getCollection().Find(ctx, filter)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return []Token{}, ErrDataNotFound
+		}
+
 		return []Token{}, err
 	}
 
@@ -116,24 +135,10 @@ func (t *Token) FindAllByStatus(ctx context.Context, status TokenStatus) ([]Toke
 	return result, nil
 }
 
-func (t *Token) isIDEmpty() bool {
-	return t.ID == primitive.NilObjectID
-}
-
 func (t *Token) IsEmpty() bool {
 	return t.isIDEmpty()
 }
 
-func (t *Token) getCollection() db.CollectionProvider {
-	return db.Datastore.Collection(tokenCollection)
-}
-
-func createFilter() bson.M {
-	filter := bson.M{
-		"$or": []bson.M{
-			{"deleted_at": bson.M{"$exists": false}},
-			{"deleted_at": nil},
-		},
-	}
-	return filter
+func (t *Token) isIDEmpty() bool {
+	return t.ID == primitive.NilObjectID
 }

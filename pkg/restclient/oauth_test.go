@@ -1,4 +1,4 @@
-package oauth_test
+package restclient_test
 
 import (
 	"testing"
