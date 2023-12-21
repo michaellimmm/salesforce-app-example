@@ -56,6 +56,9 @@ func main() {
 
 	logger.Info("service is running ...")
 
+	// TODO: put proper context
+	salesforceService.SubscribeAllLinkedToken(context.Background())
+
 	handler := http.NewHandler(httpSrv, logger, salesforceService)
 	err = handler.Serve(httpSrvPort)
 	if err != nil {

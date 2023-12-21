@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github/michaellimmm/salesforce-app-example/gen/pubsubapi"
 	"github/michaellimmm/salesforce-app-example/model"
 	"github/michaellimmm/salesforce-app-example/pkg/pubsubclient"
 	"github/michaellimmm/salesforce-app-example/pkg/restclient"
@@ -25,6 +26,7 @@ type (
 	Salesforce interface {
 		GetLoginUrl(context.Context, GetLoginUrlRequest) (GetLoginUrlResponse, error)
 		ValidateAuthCode(context.Context, string) error
+		SubscribeAllLinkedToken(ctx context.Context) error
 	}
 
 	salesforce struct {
@@ -144,4 +146,55 @@ func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
 	}
 
 	return fmt.Errorf("auth code is not valid")
+}
+
+func (s *salesforce) SubscribeAllLinkedToken(ctx context.Context) error {
+	token := model.Token{}
+	tokens, err := token.FindAllByStatus(ctx, model.TokenStatusLinked)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(tokens); i++ {
+		token := tokens[i]
+		go func(ctx context.Context, token model.Token) {
+			err := s.subscribe(ctx, token)
+			if err != nil {
+				s.logger.Error("failed to subscribe", zap.Error(err))
+			}
+		}(ctx, token)
+	}
+
+	return nil
+}
+
+// /data/<Standard_Object_Name>ChangeEvent
+func (s *salesforce) subscribe(ctx context.Context, token model.Token) error {
+	res, err := s.restClient.GetToken(ctx, restclient.TokenRequest{
+		GrantType:    restclient.GrantTypeRefreshToken,
+		RefreshToken: token.RefreshToken,
+		ClientID:     token.ClientID,
+		ClientSecret: token.ClientSecret,
+	})
+	if err != nil {
+		return err
+	}
+
+	token.AccessToken = res.AccessToken
+	token.RefreshToken = res.RefreshToken
+	if err := token.Update(ctx); err != nil {
+		return err
+	}
+
+	auth := pubsubclient.Auth{
+		AccessToken: token.AccessToken,
+		InstanceUrl: token.InstanceUrl,
+		OrgID:       token.OrgID,
+	}
+
+	// TODO: add handler for each topic to mapping data
+	_, err = s.pubsubclient.
+		Subscribe(ctx, auth, "/data/AccountChangeEvent", pubsubapi.ReplayPreset_LATEST, nil)
+
+	return err
 }

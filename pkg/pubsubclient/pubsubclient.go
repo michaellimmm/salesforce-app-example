@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github/michaellimmm/salesforce-app-example/gen/pubsubapi"
 	"io"
-	"log"
 	"os"
+	"sync"
 
 	"github.com/linkedin/goavro/v2"
 	"go.uber.org/zap"
@@ -30,6 +30,7 @@ type (
 		conn         *grpc.ClientConn
 		pubSubClient pubsubapi.PubSubClient
 		schemaCache  map[string]*goavro.Codec
+		mutex        sync.Mutex
 	}
 
 	Auth struct {
@@ -56,6 +57,7 @@ func NewPubSubClient(logger *zap.Logger) *PubSubClient {
 		logger:       logger,
 		conn:         conn,
 		pubSubClient: pubsubapi.NewPubSubClient(conn),
+		schemaCache:  make(map[string]*goavro.Codec),
 	}
 }
 
@@ -116,8 +118,13 @@ func (p *PubSubClient) Subscribe(
 	topicName string,
 	replayPreset pubsubapi.ReplayPreset,
 	replayID []byte) ([]byte, error) {
-	subscribeClient, err := p.pubSubClient.Subscribe(ctx)
+	newCtx := p.getAuthContext(ctx, auth)
+	// TODO: there's possiblity that access token is expired,
+	// so check if we need to get new token or not
+
+	subscribeClient, err := p.pubSubClient.Subscribe(newCtx)
 	if err != nil {
+		p.logger.Error("failed to subscribe", zap.Error(err))
 		return replayID, err
 	}
 
@@ -134,30 +141,36 @@ func (p *PubSubClient) Subscribe(
 	if err == io.EOF {
 		p.logger.Info("WARNING - EOF error returned from initial Send call, proceeding anyway")
 	} else if err != nil {
+		p.logger.Error("failed to fetch request", zap.Error(err))
 		return replayID, err
 	}
 
 	requestedEvents := initialFetchRequest.NumRequested
 
-	// NOTE: the replayID should ve stored in a persistent dadta store rather than being stored in a variable
-	log.Printf("replayID: %s", string(replayID))
+	// NOTE: the replayID should've stored in a persistent dadta store rather than being stored in a variable
 	curReplayID := replayID
 	for {
+
 		resp, err := subscribeClient.Recv()
 		if err == io.EOF {
 			return curReplayID, fmt.Errorf("stream closed")
 		} else if err != nil {
+			p.logger.Error("failed to receive event", zap.Error(err))
 			return curReplayID, err
 		}
 
 		for _, event := range resp.Events {
-			codec, err := p.fetchCodec(ctx, auth, event.GetEvent().GetSchemaId())
+			p.logger.Info("event", zap.Any("event", event))
+
+			codec, err := p.fetchCodec(newCtx, auth, event.GetEvent().GetSchemaId())
 			if err != nil {
+				p.logger.Error("failed to fetch codec", zap.Error(err))
 				return curReplayID, err
 			}
 
 			parsed, _, err := codec.NativeFromBinary(event.GetEvent().GetPayload())
 			if err != nil {
+				p.logger.Error("failed to parse event", zap.Error(err))
 				return curReplayID, err
 			}
 
@@ -168,7 +181,7 @@ func (p *PubSubClient) Subscribe(
 
 			curReplayID = event.GetReplayId()
 
-			log.Printf("event body: %+v\n", body)
+			p.logger.Info("event body", zap.Any("body", body))
 
 			requestedEvents--
 			if requestedEvents < appetite {
@@ -194,6 +207,9 @@ func (p *PubSubClient) Subscribe(
 // Unexported helper function to retrieve the cached codec from the PubSubClient's schema cache. If the schema ID is not found in the cache
 // then a GetSchema call is made and the corresponding codec is cached for future use
 func (p *PubSubClient) fetchCodec(ctx context.Context, auth Auth, schemaId string) (*goavro.Codec, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	codec, ok := p.schemaCache[schemaId]
 	if ok {
 		return codec, nil
