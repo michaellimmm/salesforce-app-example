@@ -36,7 +36,8 @@ func main() {
 	engine := html.New("./view", ".html")
 
 	httpSrv := fiber.New(fiber.Config{
-		Views: engine,
+		Views:       engine,
+		ViewsLayout: "application",
 		JSONEncoder: func(v interface{}) ([]byte, error) {
 			return gojson.MarshalWithOption(v, gojson.DisableHTMLEscape())
 		},
@@ -56,7 +57,6 @@ func main() {
 
 	logger.Info("service is running ...")
 
-	// TODO: put proper context
 	salesforceService.SubscribeAllLinkedToken(context.Background())
 
 	handler := http.NewHandler(httpSrv, logger, salesforceService)

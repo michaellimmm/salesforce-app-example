@@ -29,6 +29,15 @@ func NewHandler(
 }
 
 func (h *handler) Serve(addr string) error {
+	h.app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("onboard/index.onboard", fiber.Map{})
+	})
+
+	h.app.Get("/callback", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"callback_url": h.salesforce.GetCallbackUrl(),
+		})
+	})
 	h.app.Post("/oauth", h.getLoginUrl)
 	h.app.Get("/oauth/callback", h.oauthCallback)
 	h.app.Get("/oauth/success", h.oauthSuccess)

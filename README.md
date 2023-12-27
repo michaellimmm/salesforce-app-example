@@ -17,3 +17,8 @@ sequenceDiagram
     sf->>-app: return
     app->>-user: Response
 ```
+
+## How to link app
+
+- Register salesforce developer edition account ([link](https://developer.salesforce.com/signup))
+- Create Connected App, see: [How to create connected app](docs/how-to-create-app.md)

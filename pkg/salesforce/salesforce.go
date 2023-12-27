@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -22,8 +23,17 @@ const (
 	redirectPath = "/oauth/callback"
 )
 
+const (
+	topicOpportunity = "/data/OpportunityChangeEvent"
+	topicEvent       = "/data/EventChangeEvent"
+	topicOrder       = "/data/OrderChangeEvent"
+	topicCase        = "/data/CaseChangeEvent"
+	topicShipment    = "/data/ShipmentChangeEvent"
+)
+
 type (
 	Salesforce interface {
+		GetCallbackUrl() string
 		GetLoginUrl(context.Context, GetLoginUrlRequest) (GetLoginUrlResponse, error)
 		ValidateAuthCode(context.Context, string) error
 		SubscribeAllLinkedToken(ctx context.Context) error
@@ -57,6 +67,10 @@ type (
 	}
 )
 
+func (s *salesforce) GetCallbackUrl() string {
+	return s.serverDomain + redirectPath
+}
+
 func (s *salesforce) GetLoginUrl(ctx context.Context, req GetLoginUrlRequest) (GetLoginUrlResponse, error) {
 	token := model.Token{
 		ClientID:     req.ClientID,
@@ -74,7 +88,7 @@ func (s *salesforce) GetLoginUrl(ctx context.Context, req GetLoginUrlRequest) (G
 	}
 
 	codeVerifier := token.ID.Hex()
-	redirectUrl := s.serverDomain + redirectPath
+	redirectUrl := s.GetCallbackUrl()
 	url, err := s.genLoginUrl(req.ClientID, redirectUrl, codeVerifier)
 	if err != nil {
 		return GetLoginUrlResponse{}, err
@@ -192,9 +206,30 @@ func (s *salesforce) subscribe(ctx context.Context, token model.Token) error {
 		OrgID:       token.OrgID,
 	}
 
-	// TODO: add handler for each topic to mapping data
-	_, err = s.pubsubclient.
-		Subscribe(ctx, auth, "/data/AccountChangeEvent", pubsubapi.ReplayPreset_LATEST, nil)
+	topics := []string{
+		topicOpportunity,
+		topicEvent,
+		topicOrder,
+		topicCase,
+		topicShipment,
+	}
 
-	return err
+	g, newCtx := errgroup.WithContext(ctx)
+	for i := 0; i < len(topics); i++ {
+		topic := topics[i]
+		res, err := s.pubsubclient.GetTopic(newCtx, auth, topic)
+		if err != nil {
+			s.logger.Error("failed to get topic", zap.Error(err))
+			continue
+		}
+
+		s.logger.Info("topic response", zap.Any("topic_response", res))
+		g.Go(func() error {
+			_, err = s.pubsubclient.
+				Subscribe(ctx, auth, topic, pubsubapi.ReplayPreset_LATEST, nil)
+			return err
+		})
+	}
+
+	return g.Wait()
 }
