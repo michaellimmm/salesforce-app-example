@@ -14,6 +14,7 @@ import (
 	gojson "github.com/goccy/go-json"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/template/html/v2"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -46,6 +47,9 @@ func main() {
 		Logger: logger,
 		Fields: []string{"url", "queryParams", "reqHeaders", "body"},
 	}))
+	httpSrv.Use(favicon.New(favicon.Config{
+		File: "./assets/favicon.ico",
+	}))
 
 	db.Datastore = db.NewDB(context.Background(), db.WithURI("mongodb://localhost:27017"))
 	db.Datastore.SelectDB("salesforce_app_db")
@@ -57,7 +61,7 @@ func main() {
 
 	logger.Info("service is running ...")
 
-	salesforceService.SubscribeAllLinkedToken(context.Background())
+	// salesforceService.SubscribeAllLinkedToken(context.Background())
 
 	handler := http.NewHandler(httpSrv, logger, salesforceService)
 	err = handler.Serve(httpSrvPort)

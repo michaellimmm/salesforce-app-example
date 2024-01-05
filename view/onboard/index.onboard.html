@@ -1,30 +1,225 @@
-<div id="carouselExample" class="carousel slide" data-bs-wrap="false">
-  <div class="carousel-inner" id="carouselList">
-    <div class="carousel-item active" id="carousel1">
-        <div class="container">
-          <h2>Hello World</h2>
-          <p>This is simple salesforce connection app<p>
+<div id="carousel" class="carousel slide" data-bs-wrap="false">
+  <div class="row justify-content-center m-2">
+    <div class="col-md-8 p-2">
+      <div class="carousel-inner" id="carouselList">
+        <div class="carousel-item active">
+          <div class="container">
+            <p class="display-5">Hello World</p>
+            <p>This is simple salesforce connection app</p>
+          </div>
         </div>
-    </div>
-    <div class="carousel-item" id="carousel2">
-        <div class="container">
-          <h2>Step 1</h2>
-          <p>Register salesforce developer account<p>
+        <div class="carousel-item">
+          <div class="container">
+            <p class="display-5">Step 1 Login to Salesforce</p>
+            <p>Welcome to the heart of seamless integration! To unlock the full potential of our app, let's connect
+              with Salesforce.</p>
+            <p><span class="fw-bold">Already a Salesforce Trailblazer? </span></p>
+            <p>Fantastic! Log in to your Salesforce account below and let's take this integration to the next level.
+            </p>
+            <p><a href="https://login.salesforce.com/" target="_blank">Log In to Salesforce</a></p>
+            <p><span class="fw-bold">New to Salesforce Development? No worries! </span></p>
+            <p>To get started, you'll need a Salesforce developer account. Don't have one? No problem! Click the
+              button below to register and supercharge your integration journey.</p>
+            <p><a href="https://developer.salesforce.com/signup" target="_blank">Register for Salesforce Developer
+                Account</a></p>
+            <p>We're here to make your integration experience a breeze. Ready to amplify your app's capabilities?
+              Let's dive in! </p>
+          </div>
         </div>
-    </div>
-    <div class="carousel-item" id="carousel3">
-        <p>Step 2</p>
+        <div class="carousel-item">
+          <div class="container">
+            <p class="display-5">Step 2 Forge the Connection with a Connected App </p>
+            <p>To solidify the bond between your app and Salesforce, it's time to create a Connected App. This step
+              ensures secure communication and seamless data exchange. </p>
+            <p><span class="fw-bold">Craft Your Connected App: </span></p>
+            <p>
+            <ol>
+              <li> <span class="fw-bold">Access Your Salesforce Account:</span> Head over to your Salesforce account and
+                log
+                in.
+              </li>
+              <li> <span class="fw-bold">Navigate to Setup:</span> In the upper-right corner, click on your profile
+                picture,
+                and
+                select "Setup."
+              </li>
+              <li> <span class="fw-bold">Build a Connected App:</span> Under "Platform Tools," select "Apps" and then
+                "App
+                Manager." Click "New Connected App."
+              </li>
+              <li> <span class="fw-bold">Fill in the Details:</span>
+                <ul>
+                  <li> <span class="fw-bold">Connected App Name:</span> Give it a name that resonates with your project.
+                  </li>
+                  <li> <span class="fw-bold">API Name:</span> Auto-generated but customizable. </li>
+                  <li> <span class="fw-bold">Contact Email:</span> Your contact details. </li>
+                  <li> <span class="fw-bold">Enable OAuth Settings:</span>
+                    <ul>
+                      <li> <span class="fw-bold">Callback URL:</span> Use the following URL as your callback: <br>
+                        <div class="input-group">
+                          <span class="input-group-text" onclick="copyUrlToClipboard()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                              class="bi bi-clipboard" viewBox="0 0 16 16">
+                              <path
+                                d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z" />
+                              <path
+                                d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
+                            </svg>
+                          </span>
+                          <input type="text" class="form-control callbackUrl" name="callbackUrl"
+                            value="{{ .callbackUrl }}" disabled>
+                        </div>
+                      </li>
+                      <li> <span class="fw-bold">Selected OAuth Scopes:</span> Choose the necessary scopes for your
+                        integration.
+                      </li>
+                    </ul>
+                  </li>
+                  <li> <span class="fw-bold">Save Your Creation:</span> Hit "Save" to preserve your Connected App
+                    masterpiece.
+                  </li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="container">
+            <p class="display-5">Step 3 Secure the Connection with Client ID and Secret</p>
+            <p>To fortify the alliance between your app and Salesforce, we need to establish a secure handshake.
+              Follow these steps to input your Salesforce credentials into our app: </p>
+            <p class="fw-bold">Retrieve Salesforce Credentials: </p>
+            <p>
+            <ol>
+              <li>
+                <span class="fw-bold">Access Your Salesforce Connected App:</span>
+                <ul>
+                  <li>Go to your Salesforce account.</li>
+                  <li>Navigate to "Setup" > "Apps" > "App Manager."</li>
+                  <li>Find and select your Connected App.</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Copy Your Client ID:</span>
+                <ul>
+                  <li>In the Connected App details, locate the "Consumer Key" or "Client ID."</li>
+                  <li>Copy this unique identifier.</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Copy Your Client Secret:</span>
+                <ul>
+                  <li>In the same Connected App details, find the "Consumer Secret" or "Client Secret." </li>
+                  <li>Copy this confidential key. </li>
+                </ul>
+              </li>
+            </ol>
+            </p>
+            <p class="fw-bold">Integrate Salesforce Credentials into Our App: </p>
+            <form action="/authorize/" method="post">
+              <div class="row mb-3">
+                <label for="clientId" class="col-sm-2 col-form-label">Client ID</label>
+                <div class="col-sm-10">
+                  <input type="type" class="form-control" id="clientId" name="clientId">
+                </div>
+              </div>
+              <div class="row mb-3">
+                <label for="clientSecret" class="col-sm-2 col-form-label">Client Secret</label>
+                <div class="col-sm-10">
+                  <input type="type" class="form-control" id="clientSecret" name="clientSecret">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-  <button class="carousel-control btn btn-primary" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
-    <!-- <span class="carousel-control-prev-icon" aria-hidden="true"></span> -->
-    <span>Previous</span>
-  </button>
-  <button class="carousel-control btn btn-primary" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
-    <!--<span class="carousel-control-next-icon" aria-hidden="true"></span>-->
-    <span>Next</span>
-  </button>
+  <div class="row justify-content-center m-2">
+    <div class="col-sm-1 p-2">
+      <button class="carousel-control btn btn-primary" type="button" data-bs-target="#carousel" data-bs-slide="prev"
+        id="prev" onclick="onSlideControllClicked('prev')">
+        <span>Previous</span>
+      </button>
+    </div>
+    <div class="col-sm-1 p-2">
+      <button class="carousel-control btn btn-primary" type="button" data-bs-target="#carousel" data-bs-slide="next"
+        id="next" onclick="onSlideControllClicked('next')">
+        <span>Next</span>
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
+  const copyUrlToClipboard = async () => {
+    try {
+      const element = document.querySelector('input[name="callbackUrl"]');
+      await navigator.clipboard.writeText(element.value);
+      alert("Text copied to clipboard!");
+    } catch (error) {
+      alert("Failed to copy to clipboard:", error);
+    }
+  };
+
+  const carousel = document.querySelector("#carouselList")
+  const carouselItems = carousel.querySelectorAll(".carousel-item")
+  if (isCarouselActive(carouselItems[0])) {
+    setPrevButtonHidden();
+  } else {
+    setPrevButtonVisible();
+  }
+
+  function isCarouselActive(carouselItem) {
+    return carouselItem.classList.contains("active");
+  }
+
+  function setNextButtonVisible() {
+    document.querySelector("#next").style.visibility = 'visible'
+  }
+
+  function setNextButtonHidden() {
+    document.querySelector("#next").style.visibility = 'hidden';
+  }
+
+  function setPrevButtonVisible() {
+    document.querySelector("#prev").style.visibility = 'visible'
+  }
+
+  function setPrevButtonHidden() {
+    document.querySelector("#prev").style.visibility = 'hidden';
+  }
+
+  function onSlideControllClicked(action) {
+    const carousel = document.querySelector("#carouselList")
+    const carouselItems = carousel.querySelectorAll(".carousel-item")
+    let activeIndex = 0;
+    for (let i = 0; i < carouselItems.length; i++) {
+      if (isCarouselActive(carouselItems[i])) {
+        activeIndex = i;
+        break;
+      }
+    }
+
+    let newIndex = activeIndex;
+    if (action == "next") {
+      newIndex = activeIndex + 1;
+    } else if (action == "prev") {
+      newIndex = activeIndex - 1;
+
+    }
+
+    if (newIndex < carouselItems.length - 1) {
+      setNextButtonVisible();
+    } else {
+      setNextButtonHidden();
+    }
+
+    if (newIndex > 0) {
+      setPrevButtonVisible();
+    } else {
+      setPrevButtonHidden();
+    }
+  }
 </script>

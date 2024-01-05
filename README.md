@@ -18,9 +18,14 @@ sequenceDiagram
     app->>-user: Response
 ```
 
-## How to link app
+## Installation
 
-- Register salesforce developer edition account ([link](https://developer.salesforce.com/signup))
-- Create Connected App, see: [How to create connected app](docs/how-to-create-app.md)
-- Open the CDC menu and add the standard object that you want to subscribe
-- (TODO) add UI for register CDC standard object
+- install ngrok [link](https://ngrok.com/docs/getting-started/)
+- install air [link](https://github.com/cosmtrek/air)
+
+## How To Run
+
+```
+$ docker-compose -f ./docker-compose.yaml up -d mongo
+$ air
+```

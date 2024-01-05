@@ -1,0 +1,51 @@
+<div class="row justify-content-center m2">
+  <div class="col-md-8 p-2">
+    <p class="fs-2 fw-bold">😟 Uh-Oh! Connection Failed.</p>
+    <div class="alert alert-danger" role="alert">
+      {{.errorMessage}}
+    </div>
+    <p>We're sorry to hear that the linkage attempt didn't go as planned. Don't worry, we're here to assist you
+      in
+      resolving this hiccup and ensuring a successful connection. </p>
+    <p class="fs-2 fw-bold">🚦 Troubleshooting Steps:</p>
+    <p>
+    <ol>
+      <li>
+        <span class="fw-bold">Verify Credentials:</span>
+        <ul>
+          <li>
+            Double-check that the entered Client ID and Client Secret match those provided by your
+            Salesforce
+            Connected
+            App.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <span class="fw-bold">Check Callback URL:</span>
+        <ul>
+          <li>
+            Confirm that the callback URL in your Salesforce Connected App matches the one set up in
+            your app's
+            integration settings.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <span class="fw-bold">Review OAuth Scopes:</span>
+        <ul>
+          <li> Ensure that the required OAuth scopes are correctly configured in your Salesforce Connected
+            App.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <span class="fw-bold">Internet Connection:</span>
+        <ul>
+          <li>Confirm that your device has a stable internet connection.</li>
+        </ul>
+      </li>
+    </ol>
+    </p>
+  </div>
+</div>

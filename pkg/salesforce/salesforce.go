@@ -139,6 +139,8 @@ func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
 			continue
 		}
 
+		s.logger.Info("token", zap.Any("token", tokenResp))
+
 		userInfoResp, err := s.restClient.GetUserInfo(ctx, tokenResp.InstanceUrl, tokenResp.AccessToken)
 		if err != nil {
 			s.logger.Error("failed get user info", zap.Error(err))
