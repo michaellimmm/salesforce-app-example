@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"github/michaellimmm/salesforce-app-example/db"
-	"github/michaellimmm/salesforce-app-example/handler/http"
+	"github/michaellimmm/salesforce-app-example/handlers/http"
 	"github/michaellimmm/salesforce-app-example/pkg/pubsubclient"
 	"github/michaellimmm/salesforce-app-example/pkg/restclient"
 	"github/michaellimmm/salesforce-app-example/pkg/salesforce"
@@ -43,6 +43,7 @@ func main() {
 			return gojson.MarshalWithOption(v, gojson.DisableHTMLEscape())
 		},
 	})
+	httpSrv.Static("/public", "./assets")
 	httpSrv.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
 		Fields: []string{"url", "queryParams", "reqHeaders", "body"},

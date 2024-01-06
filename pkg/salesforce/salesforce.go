@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github/michaellimmm/salesforce-app-example/gen/pubsubapi"
-	"github/michaellimmm/salesforce-app-example/model"
+	"github/michaellimmm/salesforce-app-example/models"
 	"github/michaellimmm/salesforce-app-example/pkg/pubsubclient"
 	"github/michaellimmm/salesforce-app-example/pkg/restclient"
 	"github/michaellimmm/salesforce-app-example/util/crypto"
@@ -20,7 +20,7 @@ const (
 	sfLoginUri      = "https://login.salesforce.com"
 	sfAuthorizePath = "/services/oauth2/authorize"
 
-	redirectPath = "/oauth/callback"
+	redirectPath = "/linkage/callback"
 )
 
 const (
@@ -72,16 +72,16 @@ func (s *salesforce) GetCallbackUrl() string {
 }
 
 func (s *salesforce) GetLoginUrl(ctx context.Context, req GetLoginUrlRequest) (GetLoginUrlResponse, error) {
-	token := model.Token{
+	token := models.Token{
 		ClientID:     req.ClientID,
 		ClientSecret: req.ClientSecret,
 	}
 	if err := token.FindByClientIDAndClientSecret(ctx); err != nil {
-		if !errors.Is(err, model.ErrDataNotFound) {
+		if !errors.Is(err, models.ErrDataNotFound) {
 			return GetLoginUrlResponse{}, err
 		}
 
-		token.TokenStatus = string(model.TokenStatusPending)
+		token.TokenStatus = string(models.TokenStatusPending)
 		if err := token.Save(ctx); err != nil {
 			return GetLoginUrlResponse{}, err
 		}
@@ -115,8 +115,8 @@ func (s *salesforce) genLoginUrl(clientID, redirectUri, codeVerifier string) (st
 }
 
 func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
-	token := model.Token{}
-	tokens, err := token.FindAllByStatus(ctx, model.TokenStatusPending)
+	token := models.Token{}
+	tokens, err := token.FindAllByStatus(ctx, models.TokenStatusPending)
 	if err != nil {
 		s.logger.Error("failed to find all token by status", zap.Error(err))
 		return nil
@@ -149,7 +149,7 @@ func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
 
 		newToken.AccessToken = tokenResp.AccessToken
 		newToken.RefreshToken = tokenResp.RefreshToken
-		newToken.TokenStatus = string(model.TokenStatusLinked)
+		newToken.TokenStatus = string(models.TokenStatusLinked)
 		newToken.InstanceUrl = tokenResp.InstanceUrl
 		newToken.OrgID = userInfoResp.OrgID
 
@@ -165,15 +165,15 @@ func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
 }
 
 func (s *salesforce) SubscribeAllLinkedToken(ctx context.Context) error {
-	token := model.Token{}
-	tokens, err := token.FindAllByStatus(ctx, model.TokenStatusLinked)
+	token := models.Token{}
+	tokens, err := token.FindAllByStatus(ctx, models.TokenStatusLinked)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < len(tokens); i++ {
 		token := tokens[i]
-		go func(ctx context.Context, token model.Token) {
+		go func(ctx context.Context, token models.Token) {
 			err := s.subscribe(ctx, token)
 			if err != nil {
 				s.logger.Error("failed to subscribe", zap.Error(err))
@@ -185,7 +185,7 @@ func (s *salesforce) SubscribeAllLinkedToken(ctx context.Context) error {
 }
 
 // /data/<Standard_Object_Name>ChangeEvent
-func (s *salesforce) subscribe(ctx context.Context, token model.Token) error {
+func (s *salesforce) subscribe(ctx context.Context, token models.Token) error {
 	res, err := s.restClient.GetToken(ctx, restclient.TokenRequest{
 		GrantType:    restclient.GrantTypeRefreshToken,
 		RefreshToken: token.RefreshToken,

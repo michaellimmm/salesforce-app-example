@@ -1,0 +1,116 @@
+<div class="carousel slide" id="carousel" data-bs-wrap="false">
+  <div class="d-flex flex-row justify-content-center m-2">
+    <div class="col-md-8 p-2">
+      <div class="carousel-inner" id="carouselList">
+        <div class="carousel-item active">
+          <div class="container">
+            <p class="display-5">Step 5: Select Objects for Change Notifications</p>
+            <p>Now that your foundation is set, let's tailor your integration by choosing the Salesforce objects for
+              Change Notifications. Follow these steps to locate the Change Data Capture (CDC) menu: </p>
+            <p class="fw-bold">Navigate to Change Data Capture: </p>
+            <p>
+            <ol>
+              <li>
+                <span class="fw-bold">Access Your Salesforce Account:</span>
+                <ul>
+                  <li>Log in to your Salesforce account.</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Navigate to Setup:</span>
+                <ul>
+                  <li>In the upper-right corner, click on your profile picture.</li>
+                  <li>Select "Setup" from the dropdown menu.</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Find Object Manager:</span>
+                <ul>
+                  <li>In the left sidebar, under "Platform Tools," locate and click on "Object Manager."</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Explore Change Data Capture:</span>
+                <ul>
+                  <li>From the Object Manager, select the Salesforce object you want to subscribe to for Change
+                    Notifications.</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Check for Change Data Capture Menu:</span>
+                <ul>
+                  <li>Within the selected object's detail page, look for the "Change Data Capture" menu.</li>
+                </ul>
+              </li>
+            </ol>
+            </p>
+            <p class="fw-bold">Enable Change Data Capture: </p>
+            <ol>
+              <li>
+                <span class="fw-bold">Open Change Data Capture:</span>
+                <ul>
+                  <li>Once you're in the CDC menu, you'll find a list of fields associated with the selected object.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Select Fields for Change Notifications:</span>
+                <ul>
+                  <li>Choose the fields you want to monitor for changes and receive real-time notifications.</li>
+                </ul>
+              </li>
+              <li>
+                <span class="fw-bold">Save Your Configuration:</span>
+                <ul>
+                  <li>Don't forget to save your configuration to activate Change Data Capture for the selected object.
+                  </li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="container">
+            <p class="display-5">Step 6: Register Notification Object</p>
+            <p>The final touch! Register the selected notification object to ensure you receive relevant Salesforce
+              events seamlessly.</p>
+            <form hx-post="/cdc/" hx-indicator="#spinner" hx-include="[name='objectOptions']" hx-target="this">
+              <label for="objectOptions" class="fw-bold">Standard Object</label>
+              <select class="form-select" id="objectOptions" name="objectOptions" multiple>
+                {{range .object}}
+                <option value="{{.Value}}">{{.Title}}</option>
+                {{end}}
+              </select>
+              <p class="text-end small">Hold down the Ctrl (windows) or Command (Mac) button to select multiple options.
+              </p>
+              <button type="submit" class="btn btn-primary mt-3">
+                <span class="spinner-border spinner-border-sm htmx-indicator" id="spinner" role="status"
+                  aria-hidden="true"></span>
+                Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="d-flex flex-row justify-content-center m2">
+    <div class="p-2">
+      <button class="carousel-control btn btn-primary carousel-btn-prev" type="button" data-bs-target="#carousel"
+        data-bs-slide="prev" onclick="onCarouselBtnPrevClicked()">
+        <span>Previous</span>
+      </button>
+    </div>
+    <div class="p-2">
+      <button class="carousel-control btn btn-primary carousel-btn-next" type="button" data-bs-target="#carousel"
+        data-bs-slide="next" onclick="onCarouselBtnNextClicked()">
+        <span>Next</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    hideCarouselBtnPrevOnFirstSlide();
+  });
+</script>
