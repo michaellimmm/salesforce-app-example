@@ -11,6 +11,7 @@ import (
 	"github/michaellimmm/salesforce-app-example/util/crypto"
 	"net/url"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -37,6 +38,7 @@ type (
 		GetLoginUrl(context.Context, GetLoginUrlRequest) (GetLoginUrlResponse, error)
 		ValidateAuthCode(context.Context, string) error
 		SubscribeAllLinkedToken(ctx context.Context) error
+		SaveStandardObjects(ctx context.Context, clientID string, standardObjects []string) error
 	}
 
 	salesforce struct {
@@ -72,16 +74,16 @@ func (s *salesforce) GetCallbackUrl() string {
 }
 
 func (s *salesforce) GetLoginUrl(ctx context.Context, req GetLoginUrlRequest) (GetLoginUrlResponse, error) {
-	token := models.Token{
+	token := models.Account{
 		ClientID:     req.ClientID,
 		ClientSecret: req.ClientSecret,
 	}
-	if err := token.FindByClientIDAndClientSecret(ctx); err != nil {
+	if err := token.FindByClientID(ctx); err != nil {
 		if !errors.Is(err, models.ErrDataNotFound) {
 			return GetLoginUrlResponse{}, err
 		}
 
-		token.TokenStatus = string(models.TokenStatusPending)
+		token.Status = string(models.AccountStatusCreated)
 		if err := token.Save(ctx); err != nil {
 			return GetLoginUrlResponse{}, err
 		}
@@ -115,8 +117,8 @@ func (s *salesforce) genLoginUrl(clientID, redirectUri, codeVerifier string) (st
 }
 
 func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
-	token := models.Token{}
-	tokens, err := token.FindAllByStatus(ctx, models.TokenStatusPending)
+	token := models.Account{}
+	tokens, err := token.FindAllByStatus(ctx, models.AccountStatusCreated)
 	if err != nil {
 		s.logger.Error("failed to find all token by status", zap.Error(err))
 		return nil
@@ -149,7 +151,7 @@ func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
 
 		newToken.AccessToken = tokenResp.AccessToken
 		newToken.RefreshToken = tokenResp.RefreshToken
-		newToken.TokenStatus = string(models.TokenStatusLinked)
+		newToken.Status = string(models.AccountStatusLinked)
 		newToken.InstanceUrl = tokenResp.InstanceUrl
 		newToken.OrgID = userInfoResp.OrgID
 
@@ -164,16 +166,51 @@ func (s *salesforce) ValidateAuthCode(ctx context.Context, code string) error {
 	return fmt.Errorf("auth code is not valid")
 }
 
+func (s *salesforce) SaveStandardObjects(ctx context.Context, clientID string, standardObjects []string) error {
+	account := models.Account{ClientID: clientID}
+	err := account.FindByClientID(ctx)
+	if err != nil {
+		s.logger.Error("failed to get account by clientID", zap.Error(err))
+		return err
+	}
+
+	// validate
+	auth := pubsubclient.Auth{
+		AccessToken: account.AccessToken,
+		InstanceUrl: account.InstanceUrl,
+		OrgID:       account.OrgID,
+	}
+
+	for i := 0; i < len(standardObjects); i++ {
+		object := standardObjects[i]
+		topic := fmt.Sprintf("/data/%sChangeEvent", object)
+		res, err := s.pubsubclient.GetTopic(ctx, auth, topic)
+		if err != nil {
+			s.logger.Error("failed to get topic", zap.Error(err))
+			return err
+		}
+		s.logger.Info("topic response", zap.Any("topic_response", res))
+	}
+
+	objects := strings.Join(standardObjects, ",")
+	account.SubscribedObjects = objects
+	if err := account.Update(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *salesforce) SubscribeAllLinkedToken(ctx context.Context) error {
-	token := models.Token{}
-	tokens, err := token.FindAllByStatus(ctx, models.TokenStatusLinked)
+	token := models.Account{}
+	tokens, err := token.FindAllByStatus(ctx, models.AccountStatusLinked)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < len(tokens); i++ {
 		token := tokens[i]
-		go func(ctx context.Context, token models.Token) {
+		go func(ctx context.Context, token models.Account) {
 			err := s.subscribe(ctx, token)
 			if err != nil {
 				s.logger.Error("failed to subscribe", zap.Error(err))
@@ -185,27 +222,27 @@ func (s *salesforce) SubscribeAllLinkedToken(ctx context.Context) error {
 }
 
 // /data/<Standard_Object_Name>ChangeEvent
-func (s *salesforce) subscribe(ctx context.Context, token models.Token) error {
+func (s *salesforce) subscribe(ctx context.Context, account models.Account) error {
 	res, err := s.restClient.GetToken(ctx, restclient.TokenRequest{
 		GrantType:    restclient.GrantTypeRefreshToken,
-		RefreshToken: token.RefreshToken,
-		ClientID:     token.ClientID,
-		ClientSecret: token.ClientSecret,
+		RefreshToken: account.RefreshToken,
+		ClientID:     account.ClientID,
+		ClientSecret: account.ClientSecret,
 	})
 	if err != nil {
 		return err
 	}
 
-	token.AccessToken = res.AccessToken
-	token.RefreshToken = res.RefreshToken
-	if err := token.Update(ctx); err != nil {
+	account.AccessToken = res.AccessToken
+	account.RefreshToken = res.RefreshToken
+	if err := account.Update(ctx); err != nil {
 		return err
 	}
 
 	auth := pubsubclient.Auth{
-		AccessToken: token.AccessToken,
-		InstanceUrl: token.InstanceUrl,
-		OrgID:       token.OrgID,
+		AccessToken: account.AccessToken,
+		InstanceUrl: account.InstanceUrl,
+		OrgID:       account.OrgID,
 	}
 
 	topics := []string{

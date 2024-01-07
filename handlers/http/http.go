@@ -109,16 +109,16 @@ func (h *handler) Serve(addr string) error {
 	})
 
 	h.app.Get("/cdc/", func(c *fiber.Ctx) error {
-		// sess, err := h.sessionStore.Get(c)
-		// if err != nil {
-		// 	h.logger.Error("failed to get session", zap.Error(err))
-		// 	return c.Redirect("/linkage/")
-		// }
+		sess, err := h.sessionStore.Get(c)
+		if err != nil {
+			h.logger.Error("failed to get session", zap.Error(err))
+			return c.Redirect("/linkage/")
+		}
 
-		// clientID := sess.Get("clientID")
-		// if clientID == "" || clientID == nil {
-		// 	return c.Redirect("/linkage/")
-		// }
+		clientID := sess.Get("clientID")
+		if clientID == "" || clientID == nil {
+			return c.Redirect("/linkage/")
+		}
 
 		c.Response().Header.Add("HX-Redirect", "/cdc/")
 		return c.Render("registercdc/index", fiber.Map{
@@ -130,7 +130,27 @@ func (h *handler) Serve(addr string) error {
 		request := new(CDCRequest)
 		_ = c.BodyParser(request)
 		h.logger.Info("request", zap.Any("request", request))
-		return c.Render("registercdc/success", fiber.Map{})
+
+		sess, err := h.sessionStore.Get(c)
+		if err != nil {
+			h.logger.Error("failed to get session", zap.Error(err))
+			return c.Redirect("/linkage/")
+		}
+
+		clientID := sess.Get("clientID")
+		if clientID == "" || clientID == nil {
+			return c.Redirect("/linkage/")
+		}
+
+		err = h.salesforce.SaveStandardObjects(
+			c.Context(),
+			fmt.Sprintf("%s", clientID),
+			request.StandardObjects)
+		if err != nil {
+			return c.Render("registercdc/_failed", fiber.Map{"errorMessage": err})
+		}
+
+		return c.Render("registercdc/_success", fiber.Map{})
 	})
 
 	return h.app.Listen(addr)

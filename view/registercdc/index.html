@@ -74,9 +74,9 @@
             <p class="display-5">Step 6: Register Notification Object</p>
             <p>The final touch! Register the selected notification object to ensure you receive relevant Salesforce
               events seamlessly.</p>
-            <form hx-post="/cdc/" hx-indicator="#spinner" hx-include="[name='objectOptions']" hx-target="this">
-              <label for="objectOptions" class="fw-bold">Standard Object</label>
-              <select class="form-select" id="objectOptions" name="objectOptions" multiple>
+            <form hx-post="/cdc/" hx-indicator="#spinner" hx-include="[name='standardObjects']" hx-target="this">
+              <label for="standardObjects" class="fw-bold">Standard Object</label>
+              <select class="form-select" id="standardObjects" name="standardObjects" multiple>
                 {{range .object}}
                 <option value="{{.Value}}">{{.Title}}</option>
                 {{end}}
